@@ -136,18 +136,6 @@ for k,v in pairs (df.global.world.units.active) do
                 ancestorIDS[anc.id] = {}
             end
             table.insert(ancestorIDS[anc.id],v)
-
-            spouse = getSpouse(hf)
-
-            if spouse and args['force-wives'] and (v.sex == 0) then -- female
-                assignSecondName(v.name, spouse.name)
-                assignSecondName(hf.name, spouse.name)
-            end
-
-            if spouse and args['force-husbands'] and (v.sex == 1) then -- male
-                assignSecondName(v.name, spouse.name)
-                assignSecondName(hf.name, spouse.name)
-            end
    end
 end
 
@@ -165,8 +153,39 @@ for k,v in pairs (ancestorIDS) do
     if(args['paternal-inheritance'] or args['maternal-inheritance']) then
         for i,unit in pairs (v) do
             unit_hf = df.historical_figure.find(unit.hist_figure_id)
-            setHFSecondNames(paternal, unit_hf, hf.name)
-            assignSecondName(unit.name, hf.name)
+            if(hf.id ~= unit.hist_figure_id) then
+              setHFSecondNames(paternal, unit_hf, hf.name)
+              print(getName(unit),' gets surname from oldest ancestor ',dfhack.TranslateName((hf.name)))
+              assignSecondName(unit.name, hf.name)
+          end
         end
     end
+end
+
+function getName(unit)
+    return dfhack.df2console(dfhack.TranslateName(dfhack.units.getVisibleName(unit)))
+end
+
+if(args['force-wives'] or args['force-husbands']) then
+for k,unit in pairs (df.global.world.units.active) do
+   if dfhack.units.isCitizen(unit)
+       then
+            local hf = df.historical_figure.find(unit.hist_figure_id)
+            local spouse = getSpouse(hf)
+            if spouse and args['force-wives'] and (unit.sex == 0) then -- female
+                print(getName(unit),' gets surname from spouse:',dfhack.TranslateName((spouse.name)))
+                assignSecondName(unit.name, spouse.name)
+
+                assignSecondName(hf.name, spouse.name)
+                print(getName(unit))
+            end
+
+            if spouse and args['force-husbands'] and (unit.sex == 1) then -- male
+                print(getName(unit),' gets surname from spouse:',dfhack.TranslateName((spouse.name)))
+                assignSecondName(unit.name, spouse.name)
+                assignSecondName(hf.name, spouse.name)
+                print(getName(unit))
+            end
+   end
+  end
 end
