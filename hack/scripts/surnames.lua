@@ -32,6 +32,11 @@ if(args['no_output']) then
   printAllowed = false
 end
 
+if args.help then
+  print(helpString)
+  return
+end
+
 if not dfhack.world.isFortressMode() then
     return
 end
@@ -56,11 +61,6 @@ if(args['patrilineal']) then
     paternal = true
 else
     paternal = false
-end
-
-if args.help then
-  print(helpString)
-  return
 end
 
 local function getFather(hf)
