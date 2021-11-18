@@ -2,13 +2,12 @@
 
 local utils = require 'utils'
 local validArgs = utils.invert({
-'paternal-list',
-'maternal-list',
-'paternal-inheritance',
-'maternal-inheritance',
-'force-wives',
-'force-husbands',
-'no-output',
+'patrilineal',
+'matrilineal',
+'list',
+'inherit_parents',
+'inherit_spouse',
+'no_output',
 'help'
 })
 local args = utils.processArgs({...}, validArgs)
@@ -20,19 +19,21 @@ surnames
 
 Arguments:
 
-    -help                      show this help
-    -paternal-list             list greatest common paternal ancestors in console
-    -maternal-list             list greatest common maternal ancestors in console
-    -paternal-inheritance      every citizen gets oldest paternal ancestor second name
-    -maternal-inheritance      every citizen gets oldest maternal ancestor second name
-    -force-wives               force all wives to get their husband's second name
-    -force-husbands            force all husbands to get their wive's second name
-    -no-output                 Hide output
+    -help                         show this help
+    -patrilineal OR -matrilineal  type of inheritance line
+    -list                         list greatest common patrilineal/matrilineal ancestors in console
+    -inherit_parents              every citizen gets oldest patrilineal/matrilineal ancestor surname
+    -inherit_spouse               every citizen gets husband's/wife's surname
+    -no_output                    Hide output
 ]====]
 
 printAllowed = true
-if(args['no-output']) then
+if(args['no_output']) then
   printAllowed = false
+end
+
+if not dfhack.world.isFortressMode() then
+    return
 end
 
 local function condPrint(text)
@@ -41,14 +42,20 @@ local function condPrint(text)
   end
 end
 
-if args['paternal-inheritance'] and args['maternal-inheritance'] then
-    condPrint('you can choose only one type of inheritance')
+if args['patrilineal'] and args['matrilineal'] then
+    qerror('surnames: you can choose only one type of inheritance (patrilineal or matrilineal)')
     return
 end
 
-if args['force-wives'] and args['force-husbands'] then
-    condPrint('you can choose only one type of marriage tradition')
+if ((args['patrilineal']==nil) and (args['matrilineal']==nil)) then
+    qerror('surnames: you should choose type of inheritance (patrilineal or matrilineal)')
     return
+end
+
+if(args['patrilineal']) then
+    paternal = true
+else
+    paternal = false
 end
 
 if args.help then
@@ -129,11 +136,7 @@ local function setHFSecondNames(paternal,hf,sourceName)
     end
 end
 
-if(args['paternal-list'] or args['paternal-inheritance']) then
-    paternal = true
-else
-    paternal = false
-end
+
 
 local ancestorIDS = {}
 
@@ -153,7 +156,7 @@ end
 for k,v in pairs (ancestorIDS) do
     local hf = df.historical_figure.find(k)
 
-    if (args['paternal-list'] or args['maternal-list']) then
+    if args['list'] then
         local suffix = " (alive)"
         if hf.died_year ~= -1 then
             suffix = " (d. "..hf.died_year..")"
@@ -161,7 +164,7 @@ for k,v in pairs (ancestorIDS) do
         condPrint(#v.." "..dfhack.TranslateName(hf.name)..suffix)
     end
 
-    if(args['paternal-inheritance'] or args['maternal-inheritance']) then
+    if(args['inherit_parents']) then
         for i,unit in pairs (v) do
             local unit_hf = df.historical_figure.find(unit.hist_figure_id)
             if(hf.id ~= unit.hist_figure_id) then
@@ -177,19 +180,19 @@ function getName(unit)
     return dfhack.df2console(dfhack.TranslateName(dfhack.units.getVisibleName(unit)))
 end
 
-if(args['force-wives'] or args['force-husbands']) then
+if(args['inherit_spouse']) then
 for k,unit in pairs (df.global.world.units.active) do
    if dfhack.units.isCitizen(unit)
        then
             local hf = df.historical_figure.find(unit.hist_figure_id)
             local spouse = getSpouse(hf)
-            if spouse and args['force-wives'] and (unit.sex == 0) then -- female
+            if spouse and args['patrilineal'] and (unit.sex == 0) then -- female
                 condPrint(getName(unit)..' gets surname from her husband '..dfhack.TranslateName((spouse.name)))
                 assignSecondName(unit.name, spouse.name)
                 assignSecondName(hf.name, spouse.name)
             end
 
-            if spouse and args['force-husbands'] and (unit.sex == 1) then -- male
+            if spouse and args['matrilineal'] and (unit.sex == 1) then -- male
                 condPrint(getName(unit)..' gets surname from his wife '..dfhack.TranslateName((spouse.name)))
                 assignSecondName(unit.name, spouse.name)
                 assignSecondName(hf.name, spouse.name)
