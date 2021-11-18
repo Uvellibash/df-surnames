@@ -8,6 +8,7 @@ local validArgs = utils.invert({
 'maternal-inheritance',
 'force-wives',
 'force-husbands',
+'no-output',
 'help'
 })
 local args = utils.processArgs({...}, validArgs)
@@ -26,16 +27,27 @@ Arguments:
     -maternal-inheritance      every citizen gets oldest maternal ancestor second name
     -force-wives               force all wives to get their husband's second name
     -force-husbands            force all husbands to get their wive's second name
-
+    -no-output                 Hide output
 ]====]
 
+printAllowed = true
+if(args['no-output']) then
+  printAllowed = false
+end
+
+local function condPrint(text)
+  if(printAllowed) then
+    print(text)
+  end
+end
+
 if args['paternal-inheritance'] and args['maternal-inheritance'] then
-    print('you can choose only one type of inheritance')
+    condPrint('you can choose only one type of inheritance')
     return
 end
 
 if args['force-wives'] and args['force-husbands'] then
-    print('you can choose only one type of marriage tradition')
+    condPrint('you can choose only one type of marriage tradition')
     return
 end
 
@@ -44,7 +56,7 @@ if args.help then
   return
 end
 
-function getFather(hf)
+local function getFather(hf)
     father = nil
     for index, link in ipairs(hf.histfig_links) do
         if df.histfig_hf_link_fatherst:is_instance(link) then
@@ -54,7 +66,7 @@ function getFather(hf)
     return father
 end
 
-function getMother(hf)
+local function getMother(hf)
     mother = nil
     for index, link in ipairs(hf.histfig_links) do
         if df.histfig_hf_link_motherst:is_instance(link) then
@@ -64,7 +76,7 @@ function getMother(hf)
     return mother
 end
 
-function getSpouse(hf)
+local function getSpouse(hf)
     spouse = nil
     for index, link in ipairs(hf.histfig_links) do
         if df.histfig_hf_link_spousest:is_instance(link) then
@@ -74,7 +86,7 @@ function getSpouse(hf)
     return spouse
 end
 
-function findGreatestAncestor(paternal,hf)
+local function findGreatestAncestor(paternal,hf)
     for i = 1,1000 do -- no infinite loops possible
 
         if(paternal) then
@@ -92,14 +104,14 @@ function findGreatestAncestor(paternal,hf)
     return hf
 end
 
-function assignSecondName(targetName, sourceName)
+local function assignSecondName(targetName, sourceName)
     targetName.words[0] = sourceName.words[0]
     targetName.words[1] = sourceName.words[1]
     targetName.parts_of_speech[0] = sourceName.parts_of_speech[0]
     targetName.parts_of_speech[1] = sourceName.parts_of_speech[1]
 end
 
-function setHFSecondNames(paternal,hf,sourceName)
+local function setHFSecondNames(paternal,hf,sourceName)
     for i = 1,1000 do -- no infinite loops possible
 
         if(paternal) then
@@ -117,21 +129,20 @@ function setHFSecondNames(paternal,hf,sourceName)
     end
 end
 
-
 if(args['paternal-list'] or args['paternal-inheritance']) then
     paternal = true
 else
     paternal = false
 end
 
-ancestorIDS = {}
+local ancestorIDS = {}
 
 for k,v in pairs (df.global.world.units.active) do
    if dfhack.units.isCitizen(v)
        then
-            hf = df.historical_figure.find(v.hist_figure_id)
+            local hf = df.historical_figure.find(v.hist_figure_id)
 
-            anc = findGreatestAncestor(paternal, hf)
+            local anc = findGreatestAncestor(paternal, hf)
             if (ancestorIDS[anc.id]==nil) then
                 ancestorIDS[anc.id] = {}
             end
@@ -140,22 +151,22 @@ for k,v in pairs (df.global.world.units.active) do
 end
 
 for k,v in pairs (ancestorIDS) do
-    hf = df.historical_figure.find(k)
+    local hf = df.historical_figure.find(k)
 
     if (args['paternal-list'] or args['maternal-list']) then
-        suffix = " (alive)"
+        local suffix = " (alive)"
         if hf.died_year ~= -1 then
             suffix = " (d. "..hf.died_year..")"
         end
-        print(#v.." "..dfhack.TranslateName(hf.name)..suffix)
+        condPrint(#v.." "..dfhack.TranslateName(hf.name)..suffix)
     end
 
     if(args['paternal-inheritance'] or args['maternal-inheritance']) then
         for i,unit in pairs (v) do
-            unit_hf = df.historical_figure.find(unit.hist_figure_id)
+            local unit_hf = df.historical_figure.find(unit.hist_figure_id)
             if(hf.id ~= unit.hist_figure_id) then
               setHFSecondNames(paternal, unit_hf, hf.name)
-              print(getName(unit),' gets surname from oldest ancestor ',dfhack.TranslateName((hf.name)))
+              condPrint(getName(unit)..' gets surname from oldest ancestor '..dfhack.TranslateName((hf.name)))
               assignSecondName(unit.name, hf.name)
           end
         end
@@ -173,18 +184,15 @@ for k,unit in pairs (df.global.world.units.active) do
             local hf = df.historical_figure.find(unit.hist_figure_id)
             local spouse = getSpouse(hf)
             if spouse and args['force-wives'] and (unit.sex == 0) then -- female
-                print(getName(unit),' gets surname from spouse:',dfhack.TranslateName((spouse.name)))
+                condPrint(getName(unit)..' gets surname from her husband '..dfhack.TranslateName((spouse.name)))
                 assignSecondName(unit.name, spouse.name)
-
                 assignSecondName(hf.name, spouse.name)
-                print(getName(unit))
             end
 
             if spouse and args['force-husbands'] and (unit.sex == 1) then -- male
-                print(getName(unit),' gets surname from spouse:',dfhack.TranslateName((spouse.name)))
+                condPrint(getName(unit)..' gets surname from his wife '..dfhack.TranslateName((spouse.name)))
                 assignSecondName(unit.name, spouse.name)
                 assignSecondName(hf.name, spouse.name)
-                print(getName(unit))
             end
    end
   end
